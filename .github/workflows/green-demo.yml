@@ -20,6 +20,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  security-events: write
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
@@ -89,6 +90,13 @@ jobs:
           path: gitleaks-results.sarif
           retention-days: 730
 
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('gitleaks-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: green-gitleaks
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SAST Scanning — Semgrep (targeting remediated-app/)
   # Expects: no injection vulnerabilities in remediated code
@@ -143,6 +151,13 @@ jobs:
           path: semgrep-results.sarif
           retention-days: 730
 
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('semgrep-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: green-semgrep
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SCA Scanning — Trivy (targeting remediated-app/)
   # Expects: no critical/high CVEs in remediated dependencies
@@ -195,6 +210,13 @@ jobs:
           name: green-trivy-fs-sarif
           path: trivy-fs-results.sarif
           retention-days: 730
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('trivy-fs-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: green-trivy-fs
 
   # ─────────────────────────────────────────────────────────────────────────────
   # IaC Scanning — Checkov (targeting iac/remediated/)
@@ -253,6 +275,13 @@ jobs:
           name: green-checkov-sarif
           path: checkov-results.sarif
           retention-days: 730
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('checkov-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: green-checkov
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Build Remediated Docker Image
@@ -346,6 +375,13 @@ jobs:
           name: green-trivy-image-sarif
           path: trivy-image-results.sarif
           retention-days: 730
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('trivy-image-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: green-trivy-image
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Policy Gate — Aggregate, Evaluate, and ASSERT pass
