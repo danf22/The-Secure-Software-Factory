@@ -384,6 +384,124 @@ jobs:
           category: green-trivy-image
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # DAST Scanning — OWASP ZAP
+  # Dynamic Application Security Testing against the running remediated app
+  # ─────────────────────────────────────────────────────────────────────────────
+  dast-scan:
+    name: "Green Demo: DAST Scan (OWASP ZAP)"
+    runs-on: ubuntu-latest
+    needs: build-image
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: green-docker-image
+
+      - name: Load Docker image
+        run: docker load -i remediated-app-image.tar
+
+      - name: Start remediated application
+        run: |
+          docker run -d --name remediated-app \
+            -p 8000:8000 \
+            remediated-app:${{ github.sha }}
+          # Wait for the app to be ready
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "App is ready"
+              break
+            fi
+            echo "Waiting for app to start... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:8000'
+          rules_file_name: ''
+          cmd_options: '-a -j -I'
+          artifact_name: 'green-zap-dast-report'
+
+      - name: Convert ZAP report to SARIF
+        if: always()
+        run: |
+          python3 << 'PYTHON_SCRIPT'
+          import json, os
+
+          sarif = {
+              "version": "2.1.0",
+              "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+              "runs": [{
+                  "tool": {
+                      "driver": {
+                          "name": "OWASP-ZAP",
+                          "version": "2.14.0",
+                          "rules": []
+                      }
+                  },
+                  "results": []
+              }]
+          }
+
+          zap_report = None
+          for path in ['zap-report.json', 'report_json.json']:
+              if os.path.isfile(path):
+                  try:
+                      with open(path) as f:
+                          zap_report = json.load(f)
+                      break
+                  except:
+                      pass
+
+          if zap_report and 'site' in zap_report:
+              for site in zap_report.get('site', []):
+                  for alert in site.get('alerts', []):
+                      result = {
+                          "ruleId": f"ZAP-{alert.get('pluginid', 'unknown')}",
+                          "level": "warning" if alert.get('riskcode', '0') in ['0', '1'] else "error",
+                          "message": {"text": alert.get('name', 'Unknown finding')},
+                          "locations": [{
+                              "physicalLocation": {
+                                  "artifactLocation": {"uri": alert.get('uri', 'http://localhost:8000')},
+                                  "region": {"startLine": 1}
+                              }
+                          }]
+                      }
+                      sarif["runs"][0]["results"].append(result)
+
+          with open('zap-results.sarif', 'w') as f:
+              json.dump(sarif, f, indent=2)
+
+          findings = len(sarif["runs"][0]["results"])
+          print(f"🔍 ZAP DAST found {findings} finding(s)")
+          PYTHON_SCRIPT
+
+      - name: Upload ZAP SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: green-zap-sarif
+          path: zap-results.sarif
+          retention-days: 730
+          if-no-files-found: ignore
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('zap-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zap-results.sarif
+          category: green-owasp-zap
+
+      - name: Stop remediated application
+        if: always()
+        run: docker stop remediated-app || true
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Policy Gate — Aggregate, Evaluate, and ASSERT pass
   # This is the critical step: the gate MUST pass for the green demo.
   # If it fails, the workflow fails — proving the remediated code is not clean.
@@ -391,7 +509,7 @@ jobs:
   policy-gate:
     name: "Green Demo: Policy Gate (Assert Pass)"
     runs-on: ubuntu-latest
-    needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan]
+    needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan, dast-scan]
     if: always()
     steps:
       - name: Checkout repository
