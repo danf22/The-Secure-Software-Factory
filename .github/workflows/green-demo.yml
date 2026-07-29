@@ -478,7 +478,7 @@ jobs:
                           "message": {"text": alert.get('name', 'Unknown finding')},
                           "locations": [{
                               "physicalLocation": {
-                                  "artifactLocation": {"uri": alert.get('uri', 'http://localhost:8000')},
+                                  "artifactLocation": {"uri": "remediated-app/main.py"},
                                   "region": {"startLine": 1}
                               }
                           }]
