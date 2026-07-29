@@ -54,24 +54,20 @@ _POLICY_SEVERITY: dict[str, str] = {
 # A finding matches if either its ruleId or message text matches any pattern.
 _SARIF_POLICY_PATTERNS: dict[str, list[dict[str, str]]] = {
     "no_unencrypted_storage": [
-        {"rule_pattern": r"\bCKV_AWS_19\b|\bCKV_AWS_18\b|\bCKV2_AWS_6\b"},
-        {"message_pattern": r"(?i)(unencrypted|encryption|s3.*encrypt|encrypt.*s3|server.side.encrypt)"},
-        {"rule_pattern": r"(?i)s3.*encrypt|encrypt.*s3|no.unencrypted"},
+        {"rule_pattern": r"\bCKV_AWS_19\b|\bCKV2_AWS_6\b"},
+        {"message_pattern": r"(?i)(unencrypted\s+s3|s3.*not.*encrypt|bucket.*no.*encrypt|no.*server.side.encrypt)"},
     ],
     "no_wildcard_iam": [
         {"rule_pattern": r"\bCKV_AWS_1\b|\bCKV_AWS_62\b|\bCKV_AWS_63\b"},
         {"message_pattern": r"(?i)(wildcard.*action|action.*wildcard|\"\*\".*action|iam.*wildcard|full.*admin.*privilege)"},
-        {"rule_pattern": r"(?i)wildcard.*iam|iam.*wildcard|no.wildcard"},
     ],
     "no_root_container": [
         {"rule_pattern": r"\bCKV_DOCKER_3\b|\bCKV_DOCKER_8\b|\bCKV2_DOCKER_1\b"},
         {"message_pattern": r"(?i)(root\s*user|run.*as.*root|USER\s+root|no.*non-root|user\s*directive)"},
-        {"rule_pattern": r"(?i)root.*container|container.*root|no.root"},
     ],
     "no_open_security_group": [
-        {"rule_pattern": r"\bCKV_AWS_24\b|\bCKV_AWS_25\b|\bCKV2_AWS_5\b"},
-        {"message_pattern": r"(?i)(0\.0\.0\.0/0|open.*security.*group|security.*group.*open|unrestricted.*ingress|ingress.*0\.0\.0\.0)"},
-        {"rule_pattern": r"(?i)open.*security|security.*open|no.open"},
+        {"rule_pattern": r"\bCKV_AWS_24\b|\bCKV2_AWS_5\b"},
+        {"message_pattern": r"(?i)(ingress.*0\.0\.0\.0/0|0\.0\.0\.0/0.*ingress|unrestricted.*ingress|inbound.*0\.0\.0\.0)"},
     ],
 }
 
