@@ -489,16 +489,19 @@ jobs:
 
           # The red demo ASSERTS that the gate fails
           if passed:
-              print('❌ RED DEMO FAILED: Policy gate passed but should have failed!')
+              print('❌ RED DEMO BROKEN: Policy gate passed but should have failed!')
               print('   The vulnerable code was NOT detected by the pipeline.')
-              sys.exit(1)
+              sys.exit(2)  # Exit 2 = unexpected pass (demo is broken)
 
-          print('✅ RED DEMO PASSED: Policy gate correctly blocked vulnerable code')
+          print('🔴 POLICY GATE BLOCKED: Vulnerable code correctly detected')
           print(f'   Total violations detected: {len(violations)}')
 
           # Verify we have findings from multiple layers
           policies_triggered = set(v['policy_id'] for v in violations)
           print(f'   Policies triggered: {policies_triggered}')
+
+          # Exit 1 to visually FAIL the job — demonstrating the gate blocks the build
+          sys.exit(1)
           PYTHON_SCRIPT
 
       - name: Upload policy decision
