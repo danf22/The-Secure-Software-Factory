@@ -8,6 +8,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  security-events: write
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
@@ -50,6 +51,13 @@ jobs:
           retention-days: 730
           if-no-files-found: ignore
 
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('gitleaks-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: gitleaks-results.sarif
+          category: gitleaks
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SAST Scanning — Semgrep
   # Identifies code-level vulnerabilities such as injection flaws
@@ -82,6 +90,13 @@ jobs:
           path: semgrep-results.sarif
           retention-days: 730
 
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('semgrep-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: semgrep-results.sarif
+          category: semgrep
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SCA Scanning — Trivy (filesystem mode)
   # Identifies known CVEs in third-party dependencies
@@ -111,6 +126,13 @@ jobs:
           path: trivy-fs-results.sarif
           retention-days: 730
 
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('trivy-fs-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-fs-results.sarif
+          category: trivy-fs
+
   # ─────────────────────────────────────────────────────────────────────────────
   # IaC Scanning — Checkov
   # Detects misconfigurations in Terraform definitions
@@ -138,6 +160,13 @@ jobs:
           name: checkov-sarif
           path: checkov-results.sarif
           retention-days: 730
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('checkov-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: checkov-results.sarif
+          category: checkov
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Build Docker Image
@@ -207,6 +236,13 @@ jobs:
           name: trivy-image-sarif
           path: trivy-image-results.sarif
           retention-days: 730
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('trivy-image-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-image-results.sarif
+          category: trivy-image
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Policy Gate — Aggregate, Evaluate, Enforce
