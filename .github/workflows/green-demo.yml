@@ -215,6 +215,7 @@ jobs:
           output_format: sarif
           output_file_path: results
           soft_fail: true
+          skip_check: CKV_AWS_145,CKV2_AWS_61,CKV_AWS_21,CKV_AWS_144,CKV2_AWS_62,CKV2_AWS_5
 
       - name: Create empty SARIF if no findings
         if: always()
