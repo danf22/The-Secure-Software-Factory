@@ -213,13 +213,18 @@ jobs:
         with:
           directory: iac/remediated/
           output_format: sarif
-          output_file_path: checkov-results.sarif
+          output_file_path: results
           soft_fail: true
 
       - name: Create empty SARIF if no findings
         if: always()
         run: |
-          if [ ! -f checkov-results.sarif ]; then
+          # Checkov writes to results/results_sarif.sarif
+          if [ -f results/results_sarif.sarif ]; then
+            cp results/results_sarif.sarif checkov-results.sarif
+          elif [ -f results.sarif ]; then
+            cp results.sarif checkov-results.sarif
+          else
             cat > checkov-results.sarif << 'EOF'
           {
             "version": "2.1.0",
