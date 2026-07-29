@@ -1,4 +1,4 @@
-name: Green Demo — Secure Path Validation
+name: Green Demo — Security Pipeline
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Purpose: Demonstrates that remediated code passes all security scanning
@@ -731,7 +731,7 @@ jobs:
   green-demo-report:
     name: "Green Demo: Compliance Report"
     runs-on: ubuntu-latest
-    needs: [policy-gate, image-signing, summary-report]
+    needs: [policy-gate, image-signing]
     if: always()
     steps:
       - name: Checkout repository
