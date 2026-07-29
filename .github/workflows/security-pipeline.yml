@@ -253,6 +253,126 @@ jobs:
           category: trivy-image
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # DAST Scanning — OWASP ZAP
+  # Dynamic Application Security Testing against the running application
+  # ─────────────────────────────────────────────────────────────────────────────
+  dast-scan:
+    name: DAST Scan (OWASP ZAP)
+    runs-on: ubuntu-latest
+    needs: build-image
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Start vulnerable application
+        run: |
+          docker run -d --name vulnerable-app \
+            -p 8000:8000 \
+            vulnerable-app:${{ github.sha }}
+          # Wait for the app to be ready
+          for i in $(seq 1 30); do
+            if curl -s http://localhost:8000/health > /dev/null 2>&1; then
+              echo "App is ready"
+              break
+            fi
+            echo "Waiting for app to start... ($i/30)"
+            sleep 2
+          done
+
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.14.0
+        with:
+          target: 'http://localhost:8000'
+          rules_file_name: ''
+          cmd_options: '-a -j -I'
+          artifact_name: 'zap-dast-report'
+
+      - name: Convert ZAP report to SARIF
+        if: always()
+        run: |
+          # ZAP produces a JSON report — convert key findings to SARIF for aggregation
+          python3 << 'PYTHON_SCRIPT'
+          import json, os
+
+          sarif = {
+              "version": "2.1.0",
+              "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+              "runs": [{
+                  "tool": {
+                      "driver": {
+                          "name": "OWASP-ZAP",
+                          "version": "2.14.0",
+                          "rules": []
+                      }
+                  },
+                  "results": []
+              }]
+          }
+
+          # Try to parse ZAP JSON report if it exists
+          zap_report = None
+          for path in ['zap-report.json', 'report_json.json']:
+              if os.path.isfile(path):
+                  try:
+                      with open(path) as f:
+                          zap_report = json.load(f)
+                      break
+                  except:
+                      pass
+
+          if zap_report and 'site' in zap_report:
+              for site in zap_report.get('site', []):
+                  for alert in site.get('alerts', []):
+                      result = {
+                          "ruleId": f"ZAP-{alert.get('pluginid', 'unknown')}",
+                          "level": "warning" if alert.get('riskcode', '0') in ['0', '1'] else "error",
+                          "message": {"text": alert.get('name', 'Unknown finding')},
+                          "locations": [{
+                              "physicalLocation": {
+                                  "artifactLocation": {"uri": alert.get('uri', 'http://localhost:8000')},
+                                  "region": {"startLine": 1}
+                              }
+                          }]
+                      }
+                      sarif["runs"][0]["results"].append(result)
+
+          with open('zap-results.sarif', 'w') as f:
+              json.dump(sarif, f, indent=2)
+
+          findings = len(sarif["runs"][0]["results"])
+          print(f"🔍 ZAP DAST found {findings} finding(s)")
+          PYTHON_SCRIPT
+
+      - name: Upload ZAP SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-sarif
+          path: zap-results.sarif
+          retention-days: 730
+          if-no-files-found: ignore
+
+      - name: Upload to GitHub Code Scanning
+        if: always() && hashFiles('zap-results.sarif') != ''
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: zap-results.sarif
+          category: owasp-zap
+
+      - name: Stop vulnerable application
+        if: always()
+        run: docker stop vulnerable-app || true
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Policy Gate — Aggregate, Evaluate, Enforce
   # Aggregates all SARIF results, evaluates OPA policies, checks waivers,
   # and enforces based on team enforcement mode (warning vs enforcing)
@@ -260,7 +380,7 @@ jobs:
   policy-gate:
     name: Policy Gate
     runs-on: ubuntu-latest
-    needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan]
+    needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan, dast-scan]
     if: always()
     steps:
       - name: Checkout repository
