@@ -426,6 +426,7 @@ jobs:
           rules_file_name: ''
           cmd_options: '-a -j -I'
           artifact_name: 'green-zap-dast-report'
+          allow_issue_writing: false
 
       - name: Convert ZAP report to SARIF
         if: always()
