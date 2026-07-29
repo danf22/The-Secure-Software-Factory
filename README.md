@@ -23,11 +23,13 @@ graph TD
         D --> H[IaC Scan — Checkov]
         D --> I[Build Docker Image]
         I --> J[Container Scan — Trivy Image]
+        I --> Z[DAST Scan — OWASP ZAP]
         E --> K[Policy Gate — OPA/Conftest]
         F --> K
         G --> K
         H --> K
         J --> K
+        Z --> K
         K -->|PASS| L[SBOM Generation — Syft]
         L --> M[Image Signing — cosign]
         M --> N[Provenance Attestation — SLSA]
@@ -55,6 +57,7 @@ graph TD
 | **SCA** | [Trivy FS](https://trivy.dev/) | Known CVEs in third-party dependencies |
 | **IaC Scanning** | [Checkov](https://www.checkov.io/) | Infrastructure misconfigurations in Terraform (public buckets, wildcard IAM, open SGs) |
 | **Container Scanning** | [Trivy Image](https://trivy.dev/) | OS and application vulnerabilities in Docker images |
+| **DAST** | [OWASP ZAP](https://www.zaproxy.org/) | Runtime vulnerabilities: XSS, injection, misconfigurations in the running application |
 | **Policy Gate** | [OPA/Conftest](https://www.conftest.dev/) | Custom business-specific policy enforcement (Rego rules) |
 | **SBOM** | [Syft](https://github.com/anchore/syft) | Complete dependency inventory (SPDX 2.3 format) |
 | **Image Signing** | [cosign](https://github.com/sigstore/cosign) | Cryptographic image signatures and SLSA provenance attestation |
