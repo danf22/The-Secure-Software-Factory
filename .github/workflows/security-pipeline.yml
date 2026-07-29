@@ -53,7 +53,7 @@ jobs:
 
       - name: Upload to GitHub Code Scanning
         if: always() && hashFiles('gitleaks-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: gitleaks-results.sarif
           category: gitleaks
@@ -92,7 +92,7 @@ jobs:
 
       - name: Upload to GitHub Code Scanning
         if: always() && hashFiles('semgrep-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: semgrep-results.sarif
           category: semgrep
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload to GitHub Code Scanning
         if: always() && hashFiles('trivy-fs-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-fs-results.sarif
           category: trivy-fs
@@ -163,7 +163,7 @@ jobs:
 
       - name: Upload to GitHub Code Scanning
         if: always() && hashFiles('checkov-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: checkov-results.sarif
           category: checkov
@@ -239,7 +239,7 @@ jobs:
 
       - name: Upload to GitHub Code Scanning
         if: always() && hashFiles('trivy-image-results.sarif') != ''
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: trivy-image-results.sarif
           category: trivy-image
