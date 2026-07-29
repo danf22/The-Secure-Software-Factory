@@ -1,0 +1,61 @@
+{
+  "rule_mappings": {
+    "generic-api-key": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.1"]
+    },
+    "private-key": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.1"]
+    },
+    "aws-access-key-id": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.1"]
+    },
+    "python.lang.security.audit.sql-injection": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.6"]
+    },
+    "python.lang.security.audit.exec-detected": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.6"]
+    },
+    "python.lang.security.deserialization.avoid-pickle": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.6"]
+    },
+    "python.lang.security.audit.dangerous-system-call": {
+      "regulatory_refs": ["IFPE-ART58-SEC", "SOC2-CC6.6"]
+    },
+    "CVE-2021-33503": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC7.1"]
+    },
+    "CVE-2022-40897": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC7.1"]
+    },
+    "no_unencrypted_storage": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "no_wildcard_iam": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "no_root_container": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "no_open_security_group": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "CKV_AWS_19": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "CKV_AWS_62": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "CKV_AWS_23": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    },
+    "DS002": {
+      "regulatory_refs": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+    }
+  },
+  "default_refs": {
+    "gitleaks": ["IFPE-ART58-SEC", "SOC2-CC6.1"],
+    "semgrep": ["IFPE-ART58-SEC", "SOC2-CC6.6"],
+    "trivy": ["IFPE-ART58-OPS", "SOC2-CC7.1"],
+    "checkov": ["IFPE-ART58-OPS", "SOC2-CC6.1"]
+  }
+}

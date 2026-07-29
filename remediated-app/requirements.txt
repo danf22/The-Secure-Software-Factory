@@ -1,0 +1,21 @@
+# Remediated application dependencies
+# All versions pinned to current stable releases with no known CVEs
+# This contrasts with vulnerable-app/requirements.txt which uses outdated versions
+
+# FastAPI framework — latest stable
+fastapi==0.115.6
+
+# ASGI server — latest stable
+uvicorn==0.34.0
+
+# Jinja2 — patched past CVE-2024-22195 (XSS via xmlattr filter)
+Jinja2==3.1.5
+
+# requests — patched past CVE-2023-32681 (Proxy-Authorization header leak)
+requests==2.32.3
+
+# PyYAML — latest stable, patched past arbitrary code execution CVEs
+pyyaml==6.0.2
+
+# cryptography — latest stable, patched past multiple CVEs in older versions
+cryptography==44.0.0

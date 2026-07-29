@@ -1,0 +1,65 @@
+{
+  "teams": [
+    {
+      "team_id": "swat-payments",
+      "name": "SWAT Payments",
+      "enforcement_level": "enforcing",
+      "transition_date": "2025-01-15",
+      "notified": true,
+      "repositories": [
+        "payments-service",
+        "payments-gateway",
+        "payment-reconciliation"
+      ]
+    },
+    {
+      "team_id": "swat-treasury",
+      "name": "SWAT Treasury",
+      "enforcement_level": "warning",
+      "transition_date": "2025-07-21",
+      "notified": true,
+      "repositories": [
+        "treasury-core",
+        "liquidity-manager",
+        "cash-forecasting"
+      ]
+    },
+    {
+      "team_id": "swat-fx",
+      "name": "SWAT FX",
+      "enforcement_level": "warning",
+      "transition_date": "2025-08-15",
+      "notified": false,
+      "repositories": [
+        "fx-trading-engine",
+        "fx-pricing-service",
+        "fx-risk-calculator"
+      ]
+    },
+    {
+      "team_id": "swat-compliance",
+      "name": "SWAT Compliance",
+      "enforcement_level": "warning",
+      "transition_date": null,
+      "notified": false,
+      "repositories": [
+        "compliance-reporting",
+        "aml-screening",
+        "kyc-verification"
+      ]
+    },
+    {
+      "team_id": "swat-platform",
+      "name": "SWAT Platform",
+      "enforcement_level": "enforcing",
+      "transition_date": "2025-03-01",
+      "notified": true,
+      "repositories": [
+        "platform-infra",
+        "ci-cd-pipelines",
+        "secrets-management",
+        "observability-stack"
+      ]
+    }
+  ]
+}

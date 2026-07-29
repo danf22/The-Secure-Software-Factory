@@ -1,0 +1,646 @@
+name: Security Pipeline
+
+on:
+  push:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Secrets Scanning — Gitleaks
+  # Detects hardcoded secrets, API keys, and credentials in source code
+  # ─────────────────────────────────────────────────────────────────────────────
+  secrets-scan:
+    name: Secrets Scan (Gitleaks)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --source . --report-format sarif --report-path gitleaks-results.sarif
+        env:
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Upload Gitleaks SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitleaks-sarif
+          path: gitleaks-results.sarif
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SAST Scanning — Semgrep
+  # Identifies code-level vulnerabilities such as injection flaws
+  # ─────────────────────────────────────────────────────────────────────────────
+  sast-scan:
+    name: SAST Scan (Semgrep)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Semgrep
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/python
+            p/security-audit
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Run Semgrep CLI (fallback)
+        if: failure()
+        run: |
+          pip install semgrep
+          semgrep scan \
+            --config "p/python" \
+            --config "p/security-audit" \
+            --sarif \
+            --output semgrep-results.sarif \
+            vulnerable-app/ || true
+
+      - name: Upload Semgrep SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sarif
+          path: semgrep-results.sarif
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SCA Scanning — Trivy (filesystem mode)
+  # Identifies known CVEs in third-party dependencies
+  # ─────────────────────────────────────────────────────────────────────────────
+  sca-scan:
+    name: SCA Scan (Trivy FS)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: vulnerable-app/
+          format: sarif
+          output: trivy-fs-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload Trivy FS SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-fs-sarif
+          path: trivy-fs-results.sarif
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # IaC Scanning — Checkov
+  # Detects misconfigurations in Terraform definitions
+  # ─────────────────────────────────────────────────────────────────────────────
+  iac-scan:
+    name: IaC Scan (Checkov)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: iac/vulnerable/
+          output_format: sarif
+          output_file_path: checkov-results.sarif
+          soft_fail: true
+
+      - name: Upload Checkov SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-sarif
+          path: checkov-results.sarif
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Build Docker Image
+  # Builds the vulnerable application image for container scanning
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-image:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: vulnerable-app/
+          push: false
+          load: true
+          tags: vulnerable-app:${{ github.sha }}
+
+      - name: Save Docker image as artifact
+        run: docker save vulnerable-app:${{ github.sha }} -o vulnerable-app-image.tar
+
+      - name: Upload Docker image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image
+          path: vulnerable-app-image.tar
+          retention-days: 1
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Container Scanning — Trivy (image mode)
+  # Identifies vulnerabilities and misconfigurations in the Docker image
+  # ─────────────────────────────────────────────────────────────────────────────
+  container-scan:
+    name: Container Scan (Trivy Image)
+    runs-on: ubuntu-latest
+    needs: build-image
+    continue-on-error: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Run Trivy image scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: vulnerable-app:${{ github.sha }}
+          format: sarif
+          output: trivy-image-results.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+
+      - name: Upload Trivy Image SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-image-sarif
+          path: trivy-image-results.sarif
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Policy Gate — Aggregate, Evaluate, Enforce
+  # Aggregates all SARIF results, evaluates OPA policies, checks waivers,
+  # and enforces based on team enforcement mode (warning vs enforcing)
+  # ─────────────────────────────────────────────────────────────────────────────
+  policy-gate:
+    name: Policy Gate
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install jsonschema
+
+      - name: Download all SARIF artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: sarif-results/
+
+      - name: Aggregate SARIF results
+        run: |
+          # Collect all SARIF files from downloaded artifacts
+          SARIF_FILES=$(find sarif-results/ -name "*.sarif" -type f | sort)
+          if [ -z "$SARIF_FILES" ]; then
+            echo "WARNING: No SARIF files found. Creating empty aggregated report."
+            echo '{"version":"2.1.0","runs":[]}' > aggregated-results.sarif.json
+          else
+            echo "Found SARIF files:"
+            echo "$SARIF_FILES"
+            python scripts/aggregate_sarif.py \
+              --mapping config/regulatory-mapping.json \
+              $SARIF_FILES > aggregated-results.sarif.json
+          fi
+          echo "Aggregated SARIF written to aggregated-results.sarif.json"
+
+      - name: Evaluate policies
+        id: evaluate
+        run: |
+          python -c "
+          import json, sys
+          sys.path.insert(0, '.')
+          from scripts.evaluate_policies import evaluate_policies
+
+          with open('aggregated-results.sarif.json', 'r') as f:
+              aggregated = json.load(f)
+
+          decision = evaluate_policies(aggregated, 'policies/opa/')
+
+          # Write policy decision to file
+          decision_dict = {
+              'passed': decision.passed,
+              'violations': [
+                  {
+                      'policy_id': v.policy_id,
+                      'message': v.message,
+                      'resource': v.resource,
+                      'severity': v.severity,
+                      'regulatory_refs': v.regulatory_refs,
+                  }
+                  for v in decision.violations
+              ],
+              'waivers_applied': decision.waivers_applied,
+              'timestamp': decision.timestamp,
+          }
+          with open('policy-decision.json', 'w') as f:
+              json.dump(decision_dict, f, indent=2)
+
+          print(f'Policy evaluation complete: {len(decision.violations)} violation(s) found')
+          if not decision.passed:
+              print('::set-output name=has_violations::true')
+              for v in decision.violations:
+                  print(f'  - [{v.severity.upper()}] {v.message}')
+          else:
+              print('::set-output name=has_violations::false')
+              print('All policies passed.')
+          "
+
+      - name: Check waivers
+        id: waivers
+        run: |
+          python -c "
+          import json, sys
+          sys.path.insert(0, '.')
+          from scripts.check_waivers import check_waivers
+          from scripts.models import PolicyViolation
+
+          with open('policy-decision.json', 'r') as f:
+              decision = json.load(f)
+
+          # Reconstruct violations as PolicyViolation objects
+          violations = [
+              PolicyViolation(
+                  policy_id=v['policy_id'],
+                  message=v['message'],
+                  resource=v['resource'],
+                  severity=v['severity'],
+                  regulatory_refs=v.get('regulatory_refs', []),
+              )
+              for v in decision['violations']
+          ]
+
+          if not violations:
+              print('No violations to check waivers against.')
+              with open('final-violations.json', 'w') as f:
+                  json.dump({'remaining_violations': [], 'applied_waivers': []}, f, indent=2)
+          else:
+              remaining, applied = check_waivers(violations, 'waivers/')
+              result = {
+                  'remaining_violations': [
+                      {
+                          'policy_id': v.policy_id,
+                          'message': v.message,
+                          'resource': v.resource,
+                          'severity': v.severity,
+                          'regulatory_refs': v.regulatory_refs,
+                      }
+                      for v in remaining
+                  ],
+                  'applied_waivers': [
+                      {
+                          'waiver_id': w.waiver_id,
+                          'policy_id': w.policy_id,
+                          'resource': w.resource,
+                          'justification': w.justification,
+                          'approver': w.approver,
+                          'expiration_date': w.expiration_date,
+                      }
+                      for w in applied
+                  ],
+              }
+              with open('final-violations.json', 'w') as f:
+                  json.dump(result, f, indent=2)
+              print(f'Waivers applied: {len(applied)}')
+              print(f'Remaining violations: {len(remaining)}')
+          "
+
+      - name: Check enforcement mode
+        id: enforcement
+        run: |
+          python -c "
+          import json, sys, os
+          sys.path.insert(0, '.')
+          from scripts.enforcement import get_enforcement_mode
+
+          # Determine team_id from environment or default
+          team_id = os.environ.get('TEAM_ID', os.environ.get('GITHUB_REPOSITORY_OWNER', 'unknown'))
+          config_path = 'config/teams.json'
+
+          mode = get_enforcement_mode(team_id, config_path)
+          print(f'Enforcement mode for team \"{team_id}\": {mode}')
+
+          with open('final-violations.json', 'r') as f:
+              result = json.load(f)
+
+          remaining = result.get('remaining_violations', [])
+          has_violations = len(remaining) > 0
+
+          # Write enforcement decision
+          enforcement_result = {
+              'team_id': team_id,
+              'enforcement_mode': mode,
+              'violations_remaining': len(remaining),
+              'action': 'none',
+          }
+
+          if has_violations and mode == 'enforcing':
+              enforcement_result['action'] = 'fail'
+              print(f'::error::Policy gate FAILED in enforcing mode. {len(remaining)} violation(s) remain after waiver check.')
+              for v in remaining:
+                  sev = v['severity'].upper()
+                  msg = v['message']
+                  print(f'::error::[{sev}] {msg}')
+          elif has_violations and mode == 'warning':
+              enforcement_result['action'] = 'warn'
+              print(f'::warning::Policy gate has {len(remaining)} violation(s) but team is in warning mode. Build will NOT be blocked.')
+              for v in remaining:
+                  sev = v['severity'].upper()
+                  msg = v['message']
+                  print(f'::warning::[{sev}] {msg}')
+          else:
+              print('No remaining violations. Policy gate passed.')
+
+          with open('enforcement-decision.json', 'w') as f:
+              json.dump(enforcement_result, f, indent=2)
+
+          # Set output for the fail step
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write(f'mode={mode}\n')
+              f.write(f'has_violations={str(has_violations).lower()}\n')
+              f.write(f'action={enforcement_result[\"action\"]}\n')
+          "
+        env:
+          TEAM_ID: ${{ vars.TEAM_ID || 'unknown' }}
+
+      - name: Fail build if enforcing mode and violations remain
+        if: steps.enforcement.outputs.action == 'fail'
+        run: |
+          echo "Policy gate FAILED: violations detected in enforcing mode."
+          echo "Review the violations above and either fix them or apply a valid waiver."
+          exit 1
+
+      - name: Upload aggregated SARIF
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aggregated-sarif
+          path: aggregated-results.sarif.json
+          retention-days: 730
+
+      - name: Upload policy decision
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-decision
+          path: |
+            policy-decision.json
+            final-violations.json
+            enforcement-decision.json
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Summary Report
+  # Generates a per-run auditable summary linking commit, findings, and decisions
+  # ─────────────────────────────────────────────────────────────────────────────
+  summary-report:
+    name: Per-Run Summary Report
+    runs-on: ubuntu-latest
+    needs: [policy-gate]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Download aggregated SARIF
+        uses: actions/download-artifact@v4
+        with:
+          name: aggregated-sarif
+          path: artifacts/
+        continue-on-error: true
+
+      - name: Download policy decision
+        uses: actions/download-artifact@v4
+        with:
+          name: policy-decision
+          path: artifacts/
+        continue-on-error: true
+
+      - name: Generate summary report
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BUILD_STATUS: ${{ needs.policy-gate.result == 'success' && 'passed' || 'failed' }}
+        run: |
+          python -m scripts.report \
+            --commit-sha "$COMMIT_SHA" \
+            --build-status "$BUILD_STATUS" \
+            --sarif artifacts/aggregated-results.sarif.json \
+            --policy-decision artifacts/policy-decision.json \
+            --output-dir evidence
+
+      - name: Upload summary report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: summary-report
+          path: evidence/reports/
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # SBOM Generation — Syft
+  # Generates a Software Bill of Materials in SPDX JSON format from the built image
+  # ─────────────────────────────────────────────────────────────────────────────
+  sbom-generation:
+    name: SBOM Generation (Syft)
+    runs-on: ubuntu-latest
+    needs: [policy-gate, build-image]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: vulnerable-app:${{ github.sha }}
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-spdx
+          path: sbom-spdx.json
+          retention-days: 730
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Image Signing — cosign (keyless with GitHub OIDC)
+  # Signs the container image and attaches SLSA provenance attestation
+  # ─────────────────────────────────────────────────────────────────────────────
+  image-signing:
+    name: Image Signing (cosign)
+    runs-on: ubuntu-latest
+    needs: [sbom-generation]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign container image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' vulnerable-app:${{ github.sha }} 2>/dev/null || \
+            docker inspect --format='{{.Id}}' vulnerable-app:${{ github.sha }})
+          echo "IMAGE_DIGEST=${IMAGE_DIGEST}" >> $GITHUB_ENV
+          cosign sign --yes "${IMAGE_DIGEST}"
+
+      - name: Attach provenance attestation (SLSA)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          cat > provenance.json << EOF
+          {
+            "buildType": "https://github.com/slsa-framework/slsa/blob/main/docs/provenance/v0.2/schema.md",
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "git+https://github.com/${{ github.repository }}@refs/heads/${{ github.ref_name }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                },
+                "entryPoint": ".github/workflows/security-pipeline.yml"
+              }
+            },
+            "metadata": {
+              "buildInvocationId": "${{ github.run_id }}",
+              "buildStartedOn": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+              "completeness": {
+                "parameters": true,
+                "environment": true,
+                "materials": true
+              }
+            },
+            "materials": [
+              {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": {
+                  "sha1": "${{ github.sha }}"
+                }
+              }
+            ]
+          }
+          EOF
+          cosign attest --yes --predicate provenance.json --type slsaprovenance "${IMAGE_DIGEST}"
+
+      - name: Save signed image reference
+        run: |
+          cat > signed-image-ref.json << EOF
+          {
+            "image": "vulnerable-app",
+            "digest": "${IMAGE_DIGEST}",
+            "source_repo": "${{ github.repository }}",
+            "commit_sha": "${{ github.sha }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "signed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "signing_method": "cosign-keyless-oidc",
+            "provenance_type": "slsaprovenance"
+          }
+          EOF
+
+      - name: Upload signed image reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: signed-image-ref
+          path: signed-image-ref.json
+          retention-days: 730
+
+      - name: Upload provenance attestation
+        uses: actions/upload-artifact@v4
+        with:
+          name: provenance-attestation
+          path: provenance.json
+          retention-days: 730
+
+      - name: Upload all SARIF reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-sarif-reports
+          path: |
+            gitleaks-results.sarif
+            semgrep-results.sarif
+            trivy-fs-results.sarif
+            checkov-results.sarif
+            trivy-image-results.sarif
+          retention-days: 730
+          if-no-files-found: ignore
+
+      - name: Upload policy decisions
+        uses: actions/upload-artifact@v4
+        with:
+          name: policy-decisions
+          path: evidence/
+          retention-days: 730
+          if-no-files-found: ignore

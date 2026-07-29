@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "team-config-schema.json",
+  "title": "Team Configuration",
+  "description": "Schema for per-team enforcement configuration in the phased rollout.",
+  "type": "object",
+  "required": ["teams"],
+  "properties": {
+    "teams": {
+      "type": "array",
+      "description": "List of team configurations.",
+      "items": {
+        "type": "object",
+        "required": ["team_id", "name", "enforcement_level", "notified", "repositories"],
+        "properties": {
+          "team_id": {
+            "type": "string",
+            "description": "Unique team identifier.",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable team name.",
+            "minLength": 1
+          },
+          "enforcement_level": {
+            "type": "string",
+            "description": "Current enforcement mode for this team.",
+            "enum": ["warning", "enforcing"]
+          },
+          "transition_date": {
+            "type": ["string", "null"],
+            "description": "ISO 8601 date when enforcement begins, or null if not scheduled.",
+            "format": "date"
+          },
+          "notified": {
+            "type": "boolean",
+            "description": "Whether the 5-day advance notice has been sent."
+          },
+          "repositories": {
+            "type": "array",
+            "description": "List of repository names managed by this team.",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

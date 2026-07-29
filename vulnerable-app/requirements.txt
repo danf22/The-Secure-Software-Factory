@@ -1,0 +1,18 @@
+# Vulnerable seed application dependencies
+# NOTE: These versions are intentionally outdated with known CVEs for demonstration
+
+# FastAPI framework
+fastapi==0.95.0
+uvicorn==0.21.0
+
+# Jinja2 with known CVE (CVE-2024-22195 - XSS via xmlattr filter)
+Jinja2==3.1.2
+
+# requests with known CVE (CVE-2023-32681 - leaking Proxy-Authorization headers)
+requests==2.28.0
+
+# PyYAML - older version for potential issues
+pyyaml==5.4
+
+# cryptography - older version with known CVEs
+cryptography==39.0.0

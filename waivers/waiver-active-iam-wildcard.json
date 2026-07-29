@@ -1,0 +1,9 @@
+{
+  "waiver_id": "a1b2c3d4-5678-4def-abcd-1234567890ab",
+  "policy_id": "no_wildcard_iam",
+  "resource": "aws_iam_policy.app_policy",
+  "justification": "Temporary admin access required during Q1 2025 migration from legacy IAM to fine-grained policies",
+  "approver": "ciso@company.com",
+  "expiration_date": "2026-10-27",
+  "created_at": "2026-07-29T02:05:58Z"
+}

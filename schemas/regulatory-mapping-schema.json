@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "regulatory-mapping-schema.json",
+  "title": "Regulatory Mapping",
+  "description": "Schema for mapping pipeline controls to regulatory requirements (CNBV/IFPE and SOC 2).",
+  "type": "object",
+  "required": ["mappings"],
+  "properties": {
+    "mappings": {
+      "type": "array",
+      "description": "List of regulatory mapping entries.",
+      "items": {
+        "type": "object",
+        "required": [
+          "pipeline_control",
+          "cnbv_ifpe_ref",
+          "soc2_tsc_ref",
+          "evidence_artifact"
+        ],
+        "properties": {
+          "pipeline_control": {
+            "type": "string",
+            "description": "Pipeline control identifier (e.g., 'IaC Scanner - no_wildcard_iam').",
+            "minLength": 1
+          },
+          "cnbv_ifpe_ref": {
+            "type": "string",
+            "description": "CNBV/IFPE regulatory reference (e.g., 'IFPE Art. 58 - Operational Security').",
+            "minLength": 1
+          },
+          "soc2_tsc_ref": {
+            "type": "string",
+            "description": "SOC 2 Trust Services Criteria reference (e.g., 'CC6.1 - Logical and Physical Access').",
+            "minLength": 1
+          },
+          "evidence_artifact": {
+            "type": "string",
+            "description": "Path to the evidence artifact (SARIF report or policy decision).",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,38 @@
+# Pre-commit hooks for the Secure Software Factory
+# Provides fast local security feedback before code reaches the CI pipeline.
+# Install: make setup-hooks
+# Target: < 30s execution for changesets under 50 files.
+#
+# Timeout: pre-commit does not support per-hook timeouts natively.
+# Use scripts/pre-commit-wrapper.sh to enforce a 30s timeout with fail-open
+# behavior for missing binaries or crashes. See README for details.
+
+# Allow all hooks to run even if one fails — developers see the full picture.
+fail_fast: false
+
+repos:
+  # Secret detection - blocks commits containing hardcoded secrets/keys.
+  # Gitleaks exits non-zero on detection, which blocks the commit.
+  # Verbose mode outputs file paths and line numbers for each finding.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+        name: Detect secrets (Gitleaks)
+        description: Scan for hardcoded secrets, API keys, and credentials
+        verbose: true
+
+  # Static analysis - lightweight rule subset for speed
+  - repo: https://github.com/semgrep/semgrep
+    rev: v1.90.0
+    hooks:
+      - id: semgrep
+        name: SAST scan (Semgrep)
+        description: Run lightweight SAST rules locally
+        # Use only p/secrets and p/python rulesets for speed (<30s)
+        verbose: true
+        args:
+          - --config=p/secrets
+          - --config=p/python
+          - --error
+          - --quiet
