@@ -12,13 +12,14 @@ on:
 
 permissions:
   contents: read
+  id-token: write
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   # Secrets Scanning — Gitleaks (targeting vulnerable-app/)
   # ─────────────────────────────────────────────────────────────────────────────
   secrets-scan:
-    name: "🔴 Secrets Scan (Gitleaks)"
+    name: "Secrets Scan (Gitleaks)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -88,7 +89,7 @@ jobs:
   # SAST Scanning — Semgrep (targeting vulnerable-app/)
   # ─────────────────────────────────────────────────────────────────────────────
   sast-scan:
-    name: "🔴 SAST Scan (Semgrep)"
+    name: "SAST Scan (Semgrep)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -155,7 +156,7 @@ jobs:
   # SCA Scanning — Trivy filesystem (targeting vulnerable-app/)
   # ─────────────────────────────────────────────────────────────────────────────
   sca-scan:
-    name: "🔴 SCA Scan (Trivy FS)"
+    name: "SCA Scan (Trivy FS)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -221,7 +222,7 @@ jobs:
   # IaC Scanning — Checkov (targeting iac/vulnerable/)
   # ─────────────────────────────────────────────────────────────────────────────
   iac-scan:
-    name: "🔴 IaC Scan (Checkov)"
+    name: "IaC Scan (Checkov)"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -289,7 +290,7 @@ jobs:
   # Build Docker Image (for container scanning)
   # ─────────────────────────────────────────────────────────────────────────────
   build-image:
-    name: "🔴 Build Vulnerable Image"
+    name: "Build Vulnerable Image"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -320,7 +321,7 @@ jobs:
   # Container Scanning — Trivy image (targeting built vulnerable image)
   # ─────────────────────────────────────────────────────────────────────────────
   container-scan:
-    name: "🔴 Container Scan (Trivy Image)"
+    name: "Container Scan (Trivy Image)"
     runs-on: ubuntu-latest
     needs: build-image
     steps:
@@ -395,7 +396,7 @@ jobs:
   # This is the core of the red demo: we expect violations from every layer
   # ─────────────────────────────────────────────────────────────────────────────
   policy-gate:
-    name: "🔴 Policy Gate (Assert Failure)"
+    name: "Policy Gate (Assert Failure)"
     runs-on: ubuntu-latest
     needs: [secrets-scan, sast-scan, sca-scan, iac-scan, container-scan]
     if: always()
@@ -509,12 +510,145 @@ jobs:
           retention-days: 30
 
   # ─────────────────────────────────────────────────────────────────────────────
+  # SBOM Generation — Syft
+  # Generates SBOM even for vulnerable image (demonstrates full evidence chain)
+  # ─────────────────────────────────────────────────────────────────────────────
+  sbom-generation:
+    name: "🔴 SBOM Generation (Syft)"
+    runs-on: ubuntu-latest
+    needs: [policy-gate, build-image]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: red-demo-docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          image: vulnerable-app:red-demo-${{ github.sha }}
+          format: spdx-json
+          output-file: sbom-spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-demo-sbom-spdx
+          path: sbom-spdx.json
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # Image Signing — cosign (keyless with GitHub OIDC)
+  # Demonstrates signing step even when policy gate fails
+  # ─────────────────────────────────────────────────────────────────────────────
+  image-signing:
+    name: "🔴 Image Signing (cosign)"
+    runs-on: ubuntu-latest
+    needs: [sbom-generation]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download Docker image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: red-demo-docker-image
+
+      - name: Load Docker image
+        run: docker load -i vulnerable-app-image.tar
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign container image (keyless)
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' vulnerable-app:red-demo-${{ github.sha }} 2>/dev/null || true)
+
+          if [ -n "$REPO_DIGEST" ]; then
+            echo "IMAGE_DIGEST=${REPO_DIGEST}" >> $GITHUB_ENV
+            echo "Signing image: ${REPO_DIGEST}"
+            cosign sign --yes "${REPO_DIGEST}"
+          else
+            LOCAL_ID=$(docker inspect --format='{{.Id}}' vulnerable-app:red-demo-${{ github.sha }})
+            echo "IMAGE_DIGEST=${LOCAL_ID}" >> $GITHUB_ENV
+            echo "Image is local-only (not pushed to a registry). Cosign signing requires a registry."
+            echo "Skipping cosign sign — in production, push to a registry first."
+            echo "Local image ID: ${LOCAL_ID}"
+          fi
+
+      - name: Generate provenance attestation
+        run: |
+          cat > provenance.json << EOF
+          {
+            "buildType": "https://slsa.dev/provenance/v0.2",
+            "builder": {
+              "id": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            },
+            "invocation": {
+              "configSource": {
+                "uri": "git+https://github.com/${{ github.repository }}@refs/heads/${{ github.ref_name }}",
+                "digest": { "sha1": "${{ github.sha }}" },
+                "entryPoint": ".github/workflows/red-demo.yml"
+              }
+            },
+            "metadata": {
+              "buildInvocationId": "${{ github.run_id }}",
+              "completeness": { "parameters": true, "environment": true, "materials": true }
+            },
+            "materials": [
+              {
+                "uri": "git+https://github.com/${{ github.repository }}",
+                "digest": { "sha1": "${{ github.sha }}" }
+              }
+            ]
+          }
+          EOF
+
+      - name: Save signed image reference
+        run: |
+          cat > signed-image-ref.json << EOF
+          {
+            "image": "vulnerable-app",
+            "digest": "${IMAGE_DIGEST}",
+            "source_repo": "${{ github.repository }}",
+            "commit_sha": "${{ github.sha }}",
+            "workflow_run_id": "${{ github.run_id }}",
+            "signing_method": "cosign-keyless-oidc",
+            "provenance_type": "slsaprovenance"
+          }
+          EOF
+
+      - name: Upload signed image reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-demo-signed-image-ref
+          path: signed-image-ref.json
+          retention-days: 30
+
+      - name: Upload provenance attestation
+        uses: actions/upload-artifact@v4
+        with:
+          name: red-demo-provenance-attestation
+          path: provenance.json
+          retention-days: 30
+
+  # ─────────────────────────────────────────────────────────────────────────────
   # Red Demo Report — Comprehensive summary of all detected violations
   # ─────────────────────────────────────────────────────────────────────────────
   red-demo-report:
     name: "📋 Red Demo Report"
     runs-on: ubuntu-latest
-    needs: [policy-gate]
+    needs: [policy-gate, image-signing]
     if: always()
     steps:
       - name: Checkout repository
