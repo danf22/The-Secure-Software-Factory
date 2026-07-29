@@ -699,6 +699,17 @@ jobs:
             final-violations.json
           retention-days: 730
 
+      - name: Export to SIEM (simulated)
+        if: always()
+        run: |
+          python -m scripts.siem_export \
+            --sarif aggregated-results.sarif.json \
+            --policy-decision policy-decision.json \
+            --commit-sha "${{ github.sha }}" \
+            --repository "${{ github.repository }}" \
+            --dry-run \
+            --format json
+
   # ─────────────────────────────────────────────────────────────────────────────
   # SBOM Generation — Syft
   # Generates a Software Bill of Materials from the remediated container image
