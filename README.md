@@ -1,6 +1,6 @@
 # Secure Software Factory
 
-A production-grade DevSecOps pipeline for a org. This factory embeds multi-layer security scanning, policy-as-code enforcement, and supply-chain evidence generation into CI/CD without degrading developer velocity.
+A production-grade DevSecOps pipeline that demonstrates multi-layer security scanning, policy-as-code enforcement, and supply-chain evidence generation in CI/CD — without degrading developer velocity.
 
 Built for ~25 engineers across 5 SWAT teams deploying continuously (Lead Time < 1 hour), the system produces auditable artifacts mapped to **CNBV/IFPE** and **SOC 2** controls.
 
@@ -63,58 +63,26 @@ All scanners output **SARIF 2.1.0** reports, which are aggregated and evaluated 
 
 ---
 
-## Red/Green Demo
+## Demos
 
-The repository includes two demonstration workflows that prove the pipeline works end-to-end.
-
-### Red Demo (Vulnerable Code Blocked)
-
-The red demo runs the full pipeline against deliberately insecure code (`vulnerable-app/` and `iac/vulnerable/`). The pipeline detects findings in every layer and the policy gate **blocks** the build.
-
-**Trigger in CI:**
-
-```bash
-# Option 1: Manual dispatch from GitHub Actions UI
-# Go to Actions → "Red Demo — Vulnerable Code Detection" → Run workflow
-
-# Option 2: Push to demo/ branch
-git checkout -b demo/red-test
-git push -u origin demo/red-test
-```
-
-**Run locally with pytest:**
-
-```bash
-pytest tests/ -k "red" -v
-```
+The repository includes a demonstration workflow that proves the pipeline works end-to-end.
 
 ### Green Demo (Remediated Code Passes)
 
-The green demo runs the same pipeline against remediated code (`remediated-app/` and `iac/remediated/`). All policy violations are resolved and the pipeline **passes**.
+The green demo runs the full pipeline against remediated code (`remediated-app/` and `iac/remediated/`). All policy violations are resolved, SBOM is generated, and the image is signed — demonstrating the complete secure path.
 
 **Trigger in CI:**
 
 ```bash
-# Option 1: Manual dispatch from GitHub Actions UI
+# Manual dispatch from GitHub Actions UI
 # Go to Actions → "Green Demo — Secure Path Validation" → Run workflow
-
-# Option 2: Push to demo/ branch (triggers both demos)
-git checkout -b demo/green-test
-git push -u origin demo/green-test
 ```
 
-**Run locally with pytest:**
+### Security Pipeline (Vulnerable Code Detection)
 
-```bash
-pytest tests/ -k "green" -v
-```
+The main `security-pipeline.yml` runs on every push and scans `vulnerable-app/` and `iac/vulnerable/`. It detects secrets, injection flaws, CVEs, IaC misconfigurations, and container vulnerabilities — then evaluates them against custom OPA policies.
 
-### What Each Demo Validates
-
-| Demo | Expected Outcome | Requirement |
-|------|------------------|-------------|
-| Red | Policy gate FAILS, all layers report findings | Req 5.1, 5.3 |
-| Green | Policy gate PASSES, no policy violations | Req 5.2, 5.4 |
+Findings are uploaded to GitHub Code Scanning and appear as security alerts in the Security tab.
 
 ---
 
@@ -174,7 +142,6 @@ make lint
 The-Secure-Software-Factory/
 ├── .github/workflows/
 │   ├── security-pipeline.yml   # Main security pipeline (triggered on push)
-│   ├── red-demo.yml            # Red demo workflow (vulnerable code)
 │   └── green-demo.yml          # Green demo workflow (remediated code)
 ├── vulnerable-app/             # Deliberately insecure FastAPI app (seed)
 │   ├── main.py                 # Contains hardcoded secret + SQL injection
