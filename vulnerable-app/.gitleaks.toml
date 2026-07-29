@@ -1,0 +1,23 @@
+# Gitleaks configuration for vulnerable-app scanning
+# This ensures the intentional secrets are detected during demo scans
+
+title = "Vulnerable App Gitleaks Config"
+
+# Additional rules to catch our demo secrets
+[[rules]]
+id = "stripe-api-key"
+description = "Stripe API Key"
+regex = '''sk_live_[0-9a-zA-Z]{24,}'''
+tags = ["secret", "stripe"]
+
+[[rules]]
+id = "aws-access-key"
+description = "AWS Access Key ID"
+regex = '''AKIA[0-9A-Z]{16}'''
+tags = ["secret", "aws"]
+
+[[rules]]
+id = "generic-high-entropy-secret"
+description = "High entropy secret assignment"
+regex = '''(?i)(password|secret|token|key)\s*=\s*["'][^"']{8,}["']'''
+tags = ["secret", "generic"]

@@ -23,14 +23,14 @@ from fastapi import FastAPI, HTTPException, Query
 # =============================================================================
 
 # INTENTIONAL: Hardcoded API key (secrets scanner demonstration)
-API_KEY = "sk_live_4eC39HqLyjWDarjtT1zdp7dc"  # noqa: S105
+API_KEY = "sk_live_51J3kHRGnbFqXKYowqpGQrTW8NdZ0fvhJLqE9kR7x"  # noqa: S105
 
 # INTENTIONAL: Hardcoded database credentials (secrets scanner demonstration)
 DATABASE_PASSWORD = "super_secret_password_123!"  # noqa: S105
 
 # INTENTIONAL: Hardcoded AWS credentials (secrets scanner demonstration)
-AWS_ACCESS_KEY_ID = "AKIAIOSFODNN7EXAMPLE"
-AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"  # noqa: S105
+AWS_ACCESS_KEY_ID = "AKIAQWERTYUIOP12NXYZ"
+AWS_SECRET_ACCESS_KEY = "wJalrXUtnFEMI7K9MDENG+bPxRfiCYzEXAMPLEKEY"  # noqa: S105
 
 # INTENTIONAL: Hardcoded JWT signing secret (secrets scanner demonstration)
 JWT_SECRET = "my-super-secret-jwt-signing-key-do-not-share"  # noqa: S105

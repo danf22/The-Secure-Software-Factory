@@ -35,6 +35,7 @@ jobs:
           gitleaks detect \
             --source vulnerable-app/ \
             --no-git \
+            --config vulnerable-app/.gitleaks.toml \
             --report-format sarif \
             --report-path gitleaks-results.sarif
           set -e
