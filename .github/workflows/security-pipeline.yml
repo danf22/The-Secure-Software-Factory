@@ -118,6 +118,14 @@ jobs:
           output: trivy-fs-results.sarif
           severity: CRITICAL,HIGH,MEDIUM
 
+      - name: Show Trivy findings count
+        if: always()
+        run: |
+          if [ -f trivy-fs-results.sarif ]; then
+            FINDINGS=$(python3 -c "import json; d=json.load(open('trivy-fs-results.sarif')); print(sum(len(r.get('results',[])) for r in d.get('runs',[])))")
+            echo "🔍 Trivy FS found $FINDINGS vulnerability(ies)"
+          fi
+
       - name: Upload Trivy FS SARIF
         if: always()
         uses: actions/upload-artifact@v4
