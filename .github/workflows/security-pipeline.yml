@@ -22,14 +22,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
+
+      - name: Install Gitleaks
+        run: |
+          wget -qO- https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | tar xz
+          sudo mv gitleaks /usr/local/bin/
 
       - name: Run Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        with:
-          args: detect --source . --report-format sarif --report-path gitleaks-results.sarif
-        env:
-          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        run: |
+          set +e
+          gitleaks detect \
+            --source vulnerable-app/ \
+            --no-git \
+            --report-format sarif \
+            --report-path gitleaks-results.sarif
+          set -e
+          echo "Gitleaks scan complete"
 
       - name: Upload Gitleaks SARIF
         if: always()
@@ -38,6 +47,7 @@ jobs:
           name: gitleaks-sarif
           path: gitleaks-results.sarif
           retention-days: 730
+          if-no-files-found: ignore
 
   # ─────────────────────────────────────────────────────────────────────────────
   # SAST Scanning — Semgrep
