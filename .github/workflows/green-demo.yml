@@ -408,6 +408,9 @@ jobs:
         run: |
           docker run -d --name remediated-app \
             -p 8000:8000 \
+            -e DATABASE_URL="sqlite:///tmp/app.db" \
+            -e APP_API_KEY="test-key-for-dast" \
+            --tmpfs /tmp \
             remediated-app:${{ github.sha }}
           # Wait for the app to be ready
           for i in $(seq 1 30); do
@@ -418,6 +421,11 @@ jobs:
             echo "Waiting for app to start... ($i/30)"
             sleep 2
           done
+          # Show container logs if not ready
+          if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
+            echo "App failed to start. Container logs:"
+            docker logs remediated-app
+          fi
 
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.14.0
