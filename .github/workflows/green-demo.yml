@@ -408,10 +408,11 @@ jobs:
         run: |
           # Run the app directly (no Docker) so ZAP can reach it
           pip install fastapi uvicorn
+          mkdir -p /tmp/appdb
           cd remediated-app
-          DATABASE_URL="sqlite:///tmp/app.db" \
+          DATABASE_URL="sqlite:////tmp/appdb/app.db" \
           APP_API_KEY="test-key-for-dast" \
-          nohup python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+          nohup python -m uvicorn main:app --host 0.0.0.0 --port 8000 > /tmp/uvicorn.log 2>&1 &
           cd ..
           # Wait for the app to be ready
           for i in $(seq 1 30); do
@@ -423,7 +424,8 @@ jobs:
             sleep 2
           done
           if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
-            echo "❌ App failed to start"
+            echo "❌ App failed to start. Logs:"
+            cat /tmp/uvicorn.log
             exit 1
           fi
 
