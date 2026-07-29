@@ -32,9 +32,10 @@ app = FastAPI(
 # This version reads them from the environment at runtime, ensuring secrets
 # are never committed to version control.
 # =============================================================================
-API_KEY = os.environ.get("APP_API_KEY", "")
+API_KEY = os.environ.get("sk_live_4eC39HqLyjWDarjtT1zdp7dc", "")
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./app.db")
 SECRET_TOKEN = os.environ.get("SECRET_TOKEN", "")
+
 
 
 # =============================================================================
