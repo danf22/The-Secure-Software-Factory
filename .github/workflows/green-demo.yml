@@ -406,25 +406,25 @@ jobs:
 
       - name: Start remediated application
         run: |
-          docker run -d --name remediated-app \
-            -p 8000:8000 \
-            -e DATABASE_URL="sqlite:///tmp/app.db" \
-            -e APP_API_KEY="test-key-for-dast" \
-            --tmpfs /tmp \
-            remediated-app:${{ github.sha }}
+          # Run the app directly (no Docker) so ZAP can reach it
+          pip install fastapi uvicorn
+          cd remediated-app
+          DATABASE_URL="sqlite:///tmp/app.db" \
+          APP_API_KEY="test-key-for-dast" \
+          nohup python -m uvicorn main:app --host 0.0.0.0 --port 8000 &
+          cd ..
           # Wait for the app to be ready
           for i in $(seq 1 30); do
             if curl -s http://localhost:8000/health > /dev/null 2>&1; then
-              echo "App is ready"
+              echo "✅ App is ready on port 8000"
               break
             fi
             echo "Waiting for app to start... ($i/30)"
             sleep 2
           done
-          # Show container logs if not ready
           if ! curl -s http://localhost:8000/health > /dev/null 2>&1; then
-            echo "App failed to start. Container logs:"
-            docker logs remediated-app
+            echo "❌ App failed to start"
+            exit 1
           fi
 
       - name: Run OWASP ZAP Baseline Scan
@@ -508,7 +508,7 @@ jobs:
 
       - name: Stop remediated application
         if: always()
-        run: docker stop remediated-app || true
+        run: pkill -f "uvicorn main:app" || true
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Policy Gate — Aggregate, Evaluate, and ASSERT pass
