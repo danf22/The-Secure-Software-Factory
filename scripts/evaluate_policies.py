@@ -54,8 +54,8 @@ _POLICY_SEVERITY: dict[str, str] = {
 # A finding matches if either its ruleId or message text matches any pattern.
 _SARIF_POLICY_PATTERNS: dict[str, list[dict[str, str]]] = {
     "no_unencrypted_storage": [
-        {"rule_pattern": r"\bCKV_AWS_19\b|\bCKV2_AWS_6\b"},
-        {"message_pattern": r"(?i)(unencrypted\s+s3|s3.*not.*encrypt|bucket.*no.*encrypt|no.*server.side.encrypt)"},
+        {"rule_pattern": r"\bCKV2_AWS_6\b"},
+        {"message_pattern": r"(?i)(no.*server.side.encrypt|not.*encrypted|without.*encrypt|missing.*encrypt|unencrypted\s+s3)"},
     ],
     "no_wildcard_iam": [
         {"rule_pattern": r"\bCKV_AWS_1\b|\bCKV_AWS_62\b|\bCKV_AWS_63\b"},
@@ -66,7 +66,7 @@ _SARIF_POLICY_PATTERNS: dict[str, list[dict[str, str]]] = {
         {"message_pattern": r"(?i)(root\s*user|run.*as.*root|USER\s+root|no.*non-root|user\s*directive)"},
     ],
     "no_open_security_group": [
-        {"rule_pattern": r"\bCKV_AWS_24\b|\bCKV2_AWS_5\b"},
+        {"rule_pattern": r"\bCKV_AWS_24\b"},
         {"message_pattern": r"(?i)(ingress.*0\.0\.0\.0/0|0\.0\.0\.0/0.*ingress|unrestricted.*ingress|inbound.*0\.0\.0\.0)"},
     ],
 }

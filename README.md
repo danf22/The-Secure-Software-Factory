@@ -1,6 +1,6 @@
 # Secure Software Factory
 
-A production-grade DevSecOps pipeline for a fintech treasury and FX platform operating in the Mexico-US corridor. This factory embeds multi-layer security scanning, policy-as-code enforcement, and supply-chain evidence generation into CI/CD without degrading developer velocity.
+A production-grade DevSecOps pipeline for a org. This factory embeds multi-layer security scanning, policy-as-code enforcement, and supply-chain evidence generation into CI/CD without degrading developer velocity.
 
 Built for ~25 engineers across 5 SWAT teams deploying continuously (Lead Time < 1 hour), the system produces auditable artifacts mapped to **CNBV/IFPE** and **SOC 2** controls.
 
