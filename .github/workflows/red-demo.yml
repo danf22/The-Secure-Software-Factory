@@ -24,11 +24,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Install Gitleaks
         run: |
-          wget -qO- https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz
+          wget -qO- https://github.com/gitleaks/gitleaks/releases/download/v8.21.2/gitleaks_8.21.2_linux_x64.tar.gz | tar xz
           sudo mv gitleaks /usr/local/bin/
 
       - name: Run Gitleaks on vulnerable-app/
@@ -233,12 +233,16 @@ jobs:
         with:
           directory: iac/vulnerable/
           output_format: sarif
-          output_file_path: checkov-results.sarif
+          output_file_path: results
           soft_fail: false
         continue-on-error: true
 
       - name: Check Checkov results
         run: |
+          # Checkov writes to results/results_sarif.sarif
+          if [ -f results/results_sarif.sarif ]; then
+            cp results/results_sarif.sarif checkov-results.sarif
+          fi
           if [ "${{ steps.checkov.outcome }}" == "failure" ]; then
             echo "findings_detected=true" >> "$GITHUB_OUTPUT"
             echo "✅ Checkov detected IaC misconfigurations (expected for red demo)"
